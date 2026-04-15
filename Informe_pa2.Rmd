@@ -1,0 +1,388 @@
+---
+title: "PRODUCTO ACADEMICO 2"
+subtitle: "Análisis de Regresión y Correlación de la Inversión Publicitaria en Ventas"
+author: "Timoteo Flavio Taya Ramos"
+date:  "`r format(Sys.time(), '%d - %m - %Y')`"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    code_folding: show
+css: extras/custom.css
+---
+
+```{r setup, include=FALSE}
+# Configuración global de los bloques de código
+knitr::opts_chunk$set(cache = TRUE, echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r libraries}
+# Carga de librerías
+library(tidyverse)
+library(janitor)
+library(corrplot)
+library(GGally)
+library(plotly)
+library(broom)
+library(knitr)
+library(kableExtra)
+```
+
+### Carga y exploracion de datos
+```{r}
+advertising <- read.csv("Advertising.csv") %>% clean_names()
+
+head(advertising)
+summary(advertising)
+```
+
+###  Descripción del trabajo
+
+El presente informe tiene como objetivo analizar el impacto de la inversión publicitaria en distintos medios sobre el volumen de ventas.  
+
+El dataset contiene información de inversión en:  
+
+* TV  
+* Radio  
+* Newspaper 
+
+Y la variable objetivo:
+
+* Sales (ventas)
+
+###  Objetivo
+
+Determinar qué medios influyen más en las ventas y construir modelos predictivos.
+
+###  Metodología
+
+1. Análisis exploratorio
+2. Correlación
+3. Regresión simple
+4. Regresión múltiple
+5. Evaluación e interpretación
+
+###  Importancia
+
+Permite optimizar la inversión publicitaria y mejorar decisiones empresariales.
+
+#  Comprensión conceptual
+
+### Correlación
+Mide la relación entre variables (-1 a 1).
+
+- TV → fuerte relación positiva con ventas
+- Radio → relación positiva
+- Newspaper → relación débil  
+
+### Correlación vs Regresión
+- Correlación: mide relación
+- Regresión: predice valores  
+
+```{r}
+# Correlación entre TV y Sales
+cor(advertising$tv, advertising$sales)
+
+# Prueba de correlación
+cor.test(advertising$tv, advertising$sales)
+```
+
+### Diferencia entre correlación y regresión lineal
+
+Para analizar la relación entre la inversión en TV y las ventas, primero se calculó la correlación. El resultado muestra una correlación positiva alta, lo que indica que existe una relación directa: a mayor inversión en TV, mayores ventas. Sin embargo, la correlación no permite predecir valores exactos.Por ello, se utiliza la regresión lineal, la cual permite modelar la relación y estimar cuánto aumentan las ventas en función de la inversión.
+
+**En conclusión:**  
+
+- La correlación permite identificar relaciones.
+- La regresión permite cuantificar y predecir.
+
+Ambas herramientas son fundamentales para la toma de decisiones empresariales.
+
+### Pendiente e intercepto
+- Pendiente: impacto en ventas
+- Intercepto: ventas base
+
+### R²
+R² indica qué proporción de la variabilidad de la variable dependiente es explicada por el modelo. 
+
+- R² cercano a 1 → modelo muy bueno. 
+- R² cercano a 0 → modelo pobre.
+
+###  Limitaciones
+Un modelo de regresión puede no ser adecuado cuando:
+
+- La relación entre variables no es lineal.
+- Existen variables importantes no incluidas (como promociones o estacionalidad).
+- Hay valores atípicos que distorsionan los resultados.
+- Existe multicolinealidad entre variables independientes.
+
+En este caso, si factores como campañas digitales o descuentos no son considerados, el modelo podría perder precisión en sus resultados.
+
+# Analisis descriptivo
+```{r}
+library(psych)
+
+advertising %>%
+  select(tv, radio, newspaper, sales) %>%
+  psych::describe() %>%
+  select(-vars, -trimmed, -mad, -range) %>%
+  kable(digits = 2, caption = "Estadísticos descriptivos") %>%
+  kable_styling()
+```
+
+A partir de los estadísticos descriptivos, se pueden destacar los siguientes puntos:
+
+* **Inversión por canal:** La inversión promedio más alta se concentra en **TV** (147.04), siendo significativamente mayor a la de **Newspaper** (30.55) y **Radio** (23.26).
+* **Ventas:** Las ventas promedio son de **14.02 unidades**, con un rango de valores que oscila entre un mínimo de 1.6 y un máximo de 27.0.
+* **Variabilidad:** La inversión en **TV** presenta la mayor desviación estándar (85.85), lo que indica que el gasto en este medio varía considerablemente entre las diferentes observaciones.
+* **Sesgo:** La variable **Newspaper** tiene el mayor sesgo positivo (0.88), sugiriendo que en algunos casos específicos se realizan inversiones en prensa muy por encima de lo habitual.
+
+# Analisis de correlacion 
+Para entender cómo se relacionan los medios de inversión con las ventas, calculamos la matriz de correlación de Pearson.
+
+```{r correlacion, echo=FALSE, message=FALSE, warning=FALSE}
+library(corrplot)
+
+# Cálculo de la matriz
+cor_matrix <- cor(advertising[, c("tv", "radio", "newspaper", "sales")])
+
+# Gráfico mejorado
+corrplot(cor_matrix, 
+         method = "circle", 
+         type = "upper", 
+         order = "hclust", 
+         addCoef.col = "black", # Agrega el número de correlación
+         tl.col = "black",      # Color de las etiquetas
+         tl.srt = 45,           # Rotación de etiquetas
+         diag = FALSE,          # Quitar la diagonal principal
+         title = "Matriz de Correlación: Publicidad vs Ventas",
+         mar = c(0,0,1,0))  
+```  
+
+### Interpretacion de los coeficientes de correlacion  
+
+La siguiente tabla detalla la relación lineal entre los diferentes canales de inversión publicitaria y el volumen de ventas, utilizando el Coeficiente de Correlación de Pearson (r):  
+
+| Variable | Fuerza de la Relación | Coeficiente ($r$) | Impacto en Ventas |
+| :--- | :--- | :---: | :--- |
+| **TV** | Fuerte Positiva | $+0.70$ a $+1.00$ | Muy alto; es el principal motor de ventas. |
+| **Radio** | Positiva Moderada | $+0.30$ a $+0.69$ | Moderado; contribuye de forma constante. |
+| **Newspaper** | Débil / Insignificante | $0.00$ a $+0.29$ | Mínimo; la inversión no garantiza retornos lineales. |
+
+> **Nota metodológica:** El coeficiente oscila entre -1 y 1, donde 1 indica una relación positiva perfecta y 0 la ausencia de relación lineal.
+
+
+# Modelo de regresion simple
+Analizamos cómo una sola variable (TV) explica las ventas.
+```{r}
+modelo_simple <- lm(sales ~ tv, data = advertising)
+summary(modelo_simple)
+```
+
+```{r}
+ggplot(advertising, aes(x = tv, y = sales)) +
+  geom_point(color = "#2E86C1", size = 3, alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(
+    title = "Regresión lineal simple: TV vs Ventas",
+    x = "Inversión en TV",
+    y = "Ventas"
+  ) +
+  theme_minimal()
+```
+
+### Interpretación del Modelo de Regresión  simple
+
+* **Relación entre variables:** Existe una relación positiva clara entre la inversión en publicidad por **TV** y el volumen de **ventas**.
+* **Análisis de la pendiente:** La pendiente es positiva (**β₁ > 0**), lo que indica que a mayor inversión en publicidad por TV, se observa un incremento correspondiente en las ventas.
+* **Bondad de ajuste:** El modelo explica una parte importante de la variabilidad de los datos, con un coeficiente de determinación ($R^2$) considerado moderado-alto.
+* **Limitaciones:** ✔ Este modelo es útil para predicciones básicas, pero limitado en su alcance, ya que solo considera una variable independiente (univariado) y omite otros factores que podrían influir en las ventas.
+```{r}
+# Generar los 4 gráficos en una cuadrícula de 2x2
+par(mfrow = c(2, 2))
+plot(modelo_simple)
+
+# Regresar la vista a un solo gráfico por vez
+par(mfrow = c(1, 1))
+```
+
+### Relacion Variable vs modelo
+
+```{r}
+ggplot(advertising, aes(x = tv, y = sales)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red") + 
+  labs(title = "Relación TV vs Ventas y Recta de Regresión",
+       subtitle = "La línea roja representa el modelo obtenido")
+```
+
+
+# Modelo de regresion multiple
+Ahora analizamos el efecto conjunto de TV + Radio + Newspaper.
+```{r}
+modelo_multiple <- lm(sales ~ tv + radio + newspaper, data = advertising)
+summary(modelo_multiple)
+```
+### Análisis del Modelo de Regresión Múltiple
+
+El modelo explica aproximadamente el **89.7%** de la variabilidad en las ventas ($R^2$ Ajustado = 0.8956), lo cual indica un ajuste excelente.
+
+#### 1. Significancia de las Variables (Coeficientes)
+*   **TV ($\beta = 0.045$):** Es **altamente significativa** ($p < 2e-16$). Por cada unidad adicional invertida en TV, las ventas aumentan en promedio **0.045** unidades, manteniendo lo demás constante.
+*   **Radio ($\beta = 0.188$):** Es **altamente significativa** ($p < 2e-16$). Es la variable con mayor impacto unitario: por cada unidad invertida en Radio, las ventas suben **0.188** unidades.
+*   **Newspaper ($\beta = -0.001$):** **No es significativa** ($p = 0.86$). Su valor p es mucho mayor a 0.05, lo que indica que la inversión en periódicos no tiene un efecto real sobre las ventas en este modelo.
+
+#### 2. Diagnóstico Global
+*   **Estadístico F (570.3):** El modelo en su conjunto es estadísticamente significativo ($p < 2.2e-16$), lo que confirma que al menos una de las variables ayuda a predecir las ventas.
+*   **Intercepto (2.93):** Representa las ventas estimadas si la inversión en todos los medios fuera cero.
+
+```{r}
+par(mfrow=c(2,2))
+plot(modelo_multiple)
+par(mfrow=c(1,1))
+```
+
+**Conclusión Estratégica:** Los gráficos validan que tu modelo es estadísticamente sólido.Como el modelo funciona bien,  se puedes confiar en que la inversión en "Periódicos" realmente no está funcionando y es mejor mover ese dinero a "Radio y TV"
+
+### Grafico ventas reales vs prediccion
+```{r}
+# Agregamos las predicciones al dataset
+advertising <- advertising %>%
+  mutate(predicciones = predict(modelo_multiple))
+
+# Gráfico de Valor Real vs Predicción
+ggplot(advertising, aes(x = sales, y = predicciones)) +
+  geom_point(color = "blue", alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "Modelo Múltiple: Ventas Reales vs. Predicciones",
+       x = "Ventas Reales",
+       y = "Predicciones del Modelo") +
+  theme_minimal()
+```
+
+### Comparacion de los modelos en $R^2$
+
+```{r}
+tibble(
+  Modelo = c("Simple", "Multiple"),
+  R2 = c(
+    summary(modelo_simple)$r.squared,
+    summary(modelo_multiple)$r.squared
+  )
+)
+```
+
+# Visualizacion 
+
+```{r}
+ggplot(advertising, aes(tv, sales)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "TV vs Ventas")
+```
+
+```{r}
+ggplot(advertising, aes(radio, sales)) +
+  geom_point(color="green") +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Radio vs Ventas")
+```
+
+```{r}
+ggplot(advertising, aes(newspaper, sales)) +
+  geom_point(color="purple") +
+  geom_smooth(method = "lm") +
+  theme_minimal() +
+  labs(title = "Newspaper vs Ventas")
+```
+
+### Análisis de las Visualizaciones
+
+Los tres gráficos de dispersión muestran una **relación lineal positiva** con respecto a las ventas, aunque con distinta intensidad y fiabilidad:
+
+*   **TV:** Se perfila como el predictor más sólido y claro. Los puntos se agrupan estrechamente en torno a la línea de regresión, lo que indica una relación directa y una alta dependencia de las ventas según la inversión en este medio.
+*   **Radio:** Presenta una tendencia positiva clara y significativa, aunque con una dispersión mayor que la de TV, lo que sugiere una influencia importante pero con más variabilidad.
+*   **Newspaper (Periódico):** Es el canal más débil de los tres. La alta dispersión de los puntos indica que la inversión en prensa escrita no garantiza un aumento constante o predecible en las ventas.
+
+# Mapa de calor
+
+```{r}
+library(ggcorrplot)
+
+# Seleccionar variables numéricas
+datos_corr <- advertising[, c("tv", "radio", "newspaper", "sales")]
+
+# Calcular correlación
+cor_matrix <- cor(datos_corr)
+
+# Mapa de calor profesional
+ggcorrplot(cor_matrix,
+           method = "circle",
+           type = "upper",
+           lab = TRUE,
+           colors = c("blue", "white", "red"),
+           title = "Mapa de calor de correlación",
+           ggtheme = theme_minimal())
+```
+
+### Análisis del Mapa de Calor
+
+El mapa de calor confirma visualmente las tendencias observadas mediante coeficientes numéricos precisos:
+
+*   **Correlación Dominante:** La relación entre **TV y Sales** es la más alta (cercana a 1), lo que la posiciona como la variable estratégica y clave para el crecimiento del negocio.
+*   **Sinergia:** Existe una **correlación moderada** entre Radio y Sales, lo que indica que es un canal complementario efectivo para impulsar las ventas.
+*   **Independencia:** La **baja correlación** de Newspaper con las ventas sugiere que es el gasto publicitario menos eficiente, mostrando poca influencia directa en los resultados comerciales.
+
+# Interpretación de los Resultados del Modelo
+
+El modelo de regresión lineal múltiple presenta un excelente desempeño, con un **R² ajustado de 0.8956**, lo que indica que aproximadamente el **89.7% de la variabilidad en las ventas** es explicada por las variables incluidas (TV, Radio y Newspaper).
+
+### Interpretación de los coeficientes
+
+- **TV (β = 0.045):**  
+  Tiene un efecto positivo y altamente significativo (*p < 2e-16*).  
+  Esto indica que, manteniendo constantes las demás variables, un incremento en la inversión en TV genera un aumento promedio de **0.045 unidades** en las ventas.
+
+- **Radio (β = 0.188):**  
+  Es la variable con mayor impacto y también altamente significativa (*p < 2e-16*).  
+  Esto sugiere que la inversión en radio es la más efectiva para incrementar las ventas.
+
+- **Newspaper (β = -0.001):**  
+  No es estadísticamente significativa (*p = 0.86*), lo que implica que no tiene un efecto real sobre las ventas dentro del modelo.
+
+### Evaluación global del modelo
+
+- **Estadístico F (570.3):**  
+  El modelo en su conjunto es estadísticamente significativo (*p < 2.2e-16*), lo que valida su capacidad predictiva.
+
+- **Intercepto (2.93):**  
+  Representa el nivel base de ventas cuando no hay inversión en publicidad.
+
+### Comparación con el modelo de regresión simple
+
+El modelo de regresión simple (solo con TV) muestra una relación positiva entre la inversión en TV y las ventas, pero su capacidad explicativa es menor. Aunque es útil para análisis básicos, resulta limitado porque no considera otras variables relevantes.
+
+# 6. Conclusiones sobre la Utilidad del Modelo para la Toma de Decisiones
+
+El modelo de regresión múltiple resulta ser una **herramienta altamente útil y confiable para la toma de decisiones empresariales**, debido a su alto poder explicativo y la significancia estadística de sus variables principales.
+
+### Principales conclusiones estratégicas
+
+- **Optimización de la inversión publicitaria:**  
+  La empresa debería priorizar la inversión en **Radio y TV**, ya que ambas variables tienen un impacto positivo y significativo en las ventas.
+
+- **Reasignación de recursos:**  
+  La inversión en **Newspaper no contribuye significativamente** al incremento de ventas, por lo que se recomienda reducir o eliminar este gasto y redirigirlo hacia canales más efectivos.
+
+- **Mejora en la predicción:**  
+  El modelo permite realizar estimaciones más precisas del comportamiento de las ventas, facilitando la planificación y proyección comercial.
+
+- **Ventaja frente al modelo simple:**  
+  Al incluir múltiples variables, el modelo captura mejor la realidad del mercado, ofreciendo una visión más completa y precisa que el modelo de regresión simple.
+
+### Conclusión general
+
+En síntesis, el modelo no solo explica adecuadamente las ventas, sino que también proporciona **evidencia cuantitativa sólida** para mejorar la estrategia de marketing y maximizar el **retorno de inversión (ROI)**.
+
+
